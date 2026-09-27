@@ -390,7 +390,9 @@
   });
 
   // ------------------------------------------------------------ 検索（js/search.js）
-  window.PM_Search.init({ map, input: $('q'), list: $('qres'), geocoder: C.geocoder, onUseView: () => { $('useView').click(); selectTab('area'); } });
+  try {
+    window.PM_Search.init({ map, input: $('q'), list: $('qres'), geocoder: C.geocoder, onUseView: () => { $('useView').click(); selectTab('area'); } });
+  } catch (e) { console.error('検索の初期化に失敗しました', e); }   // 検索が壊れても地図と計算は動かす
 
   // ------------------------------------------------------------ テーマ
   function retheme() { if (regionRect) regionRect.setStyle({ color: css('--ink') }); if (E) { paintHeat(); drawIso(); } drawPoints(); if (pin) pin.setStyle({ color: css('--ink') }); }

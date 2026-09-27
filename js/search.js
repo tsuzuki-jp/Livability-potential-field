@@ -52,14 +52,14 @@
   const uniq = arr => arr.filter((x, i) => x && arr.indexOf(x) === i);
 
   function init({ map, input, list, geocoder, onUseView }) {
-    let items = [], itemsFor = '', active = -1, seq = 0, timer = null, ctrl = null, marker = null;
+    let diag = { osm: '', gsi: '' }, items = [], itemsFor = '', active = -1, seq = 0, timer = null, ctrl = null, marker = null;
 
     const setExpanded = on => { list.hidden = !on; input.setAttribute('aria-expanded', String(on)); if (!on) { active = -1; input.removeAttribute('aria-activedescendant'); } };
 
     async function fetchPhoton(q, signal) {
       const c = map.getCenter();
       const url = `${geocoder.photon}?q=${encodeURIComponent(q)}&limit=8&lat=${c.lat.toFixed(4)}&lon=${c.lng.toFixed(4)}&bbox=${JAPAN_BBOX}`;
-      const r = await fetch(url, { signal }); if (!r.ok) throw new Error('photon ' + r.status);
+      const r = await fetch(url, { signal }); if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       return (j.features || []).filter(f => (f.properties.countrycode || 'JP').toUpperCase() === 'JP').map(f => {
         const p = f.properties, kind = kindOf(p);
@@ -86,12 +86,15 @@
       const my = ++seq;
       if (ctrl) ctrl.abort();
       ctrl = new AbortController();
+      diag = { osm: '', gsi: '' };
       const looksAddr = /[0-9０-９]|丁目|番地|[都道府県].+[市区町村]/.test(q);
       renderLoading();
       const [ph, gs] = await Promise.all([
-        fetchPhoton(q, ctrl.signal).catch(() => []),
-        fetchGsi(q, ctrl.signal).catch(() => [])
+        fetchPhoton(q, ctrl.signal).catch(e => { diag.osm = e.name === 'AbortError' ? '' : '接続エラー'; return []; }),
+        fetchGsi(q, ctrl.signal).catch(e => { diag.gsi = e.name === 'AbortError' ? '' : '接続エラー'; return []; })
       ]);
+      if (ph.length) diag.osm = ph.length + '件'; else if (!diag.osm) diag.osm = '0件';
+      if (gs.length) diag.gsi = gs.length + '件'; else if (!diag.gsi) diag.gsi = '0件';
       if (my !== seq) return;
       // 近い位置の重複を除く（Photon を優先）
       const gsiUniq = gs.filter(g => !ph.some(p => distM([p.lat, p.lon], [g.lat, g.lon]) < 150 && (p.name.includes(g.name) || g.name.includes(p.name))));
@@ -114,7 +117,12 @@
       if (!items.length) { list.innerHTML = '<li class="qmsg" role="presentation">検索中…</li>'; setExpanded(true); }
     }
     function render() {
-      if (!items.length) { list.innerHTML = '<li class="qmsg" role="presentation">見つかりませんでした。市区町村名を足すと見つかりやすくなります（例：宇都宮市 陽南）。</li>'; setExpanded(true); return; }
+      if (!items.length) {
+        const bad = /エラー/.test(diag.osm + diag.gsi);
+        list.innerHTML = `<li class="qmsg" role="presentation">${bad ? '検索サービスに接続できませんでした。時間をおいて試すか、ページを再読み込みしてください。' : '見つかりませんでした。市区町村名を足すと見つかりやすくなります（例：宇都宮市 陽南）。'}
+          <br><span style="font-size:11px">OSM: ${esc(diag.osm || '—')} ／ 地理院: ${esc(diag.gsi || '—')}</span></li>`;
+        setExpanded(true); return;
+      }
       list.innerHTML = items.map((it, k) => `<li role="option" id="qopt-${k}" data-k="${k}" aria-selected="${k === active}">
           <span class="qname">${esc(it.name)}</span><span class="qkind">${esc(it.kind)}</span>
           <span class="qsub">${esc(it.sub || '')}</span></li>`).join('');
