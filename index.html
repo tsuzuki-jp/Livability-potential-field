@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>住環境ポテンシャル地図</title>
+<meta name="description" content="避けたい施設を正、便利な施設を負のポテンシャルとして地図に重ね、住みやすい場所を探すツール">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><h1>住環境ポテンシャル地図</h1><span class="tag">U = Σ s·w·Φ</span></div>
+    <div class="search" role="search">
+      <input id="q" type="search" placeholder="地名・駅名で移動（例：宇都宮駅）" autocomplete="off" aria-label="地名・駅名で検索">
+      <ul id="qres" hidden></ul>
+    </div>
+  </header>
+
+  <div class="body">
+    <div id="map" aria-label="地図"></div>
+
+    <aside class="side">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-area" aria-selected="true" aria-controls="p-area">範囲</button>
+        <button role="tab" id="tab-weight" aria-selected="false" aria-controls="p-weight">重み</button>
+        <button role="tab" id="tab-result" aria-selected="false" aria-controls="p-result">結果<span class="badge" id="candBadge" hidden>0</span></button>
+      </div>
+      <div class="panels">
+        <!-- 範囲 -->
+        <div class="panel" id="p-area" role="tabpanel" aria-labelledby="tab-area">
+          <section>
+            <h2>対象範囲</h2>
+            <div class="region-box">
+              <label for="rname">名前</label><input id="rname" type="text" placeholder="例：宇都宮">
+              <span>範囲</span><span class="num" id="rbbox">—</span>
+              <span>面積</span><span class="num" id="rarea">—</span>
+            </div>
+            <div class="row-btns" style="margin-top:10px">
+              <button class="btn" id="useView" type="button">表示中の範囲を対象にする</button>
+              <button class="btn" id="showRegion" type="button">対象範囲を表示</button>
+            </div>
+            <p class="hint" style="margin-top:8px">地図を動かして見たい地域を表示し、「表示中の範囲を対象にする」を押してください。広すぎると取得に時間がかかります（目安は 300 km² 以下）。</p>
+          </section>
+
+          <section>
+            <h2>通勤先（近いほど便利）</h2>
+            <ul class="anchors" id="anchors"></ul>
+            <button class="btn small" id="addAnchor" type="button" aria-pressed="false">地図をクリックして追加</button>
+            <p class="hint" style="margin-top:6px">追加した通勤先の印はドラッグで動かせます。</p>
+          </section>
+
+          <section>
+            <div class="fetchrow">
+              <button class="btn primary" id="fetchBtn" type="button">データを取得して計算</button>
+              <button class="btn" id="cancelBtn" type="button" hidden>中止</button>
+            </div>
+            <div class="status" id="status" style="margin-top:10px">OpenStreetMap から施設・道路・線路を取得し、ブラウザ内で計算します。</div>
+          </section>
+
+          <section>
+            <h2>データ</h2>
+            <div class="row-btns">
+              <button class="btn small" id="saveJson" type="button" disabled>JSON で保存</button>
+              <button class="btn small" id="loadBtn" type="button">JSON を読み込む</button>
+              <input type="file" id="loadJson" accept=".json,application/json" hidden>
+              <button class="btn small" id="shareBtn" type="button">共有リンクをコピー</button>
+            </div>
+            <p class="hint" style="margin-top:6px">保存した JSON は、次回ネットに接続せずに読み込めます。Python 版 potmap が出力した JSON も読み込めます。共有リンクには範囲・通勤先・重みが入ります（データは開いた人が取得します）。</p>
+          </section>
+        </div>
+
+        <!-- 重み -->
+        <div class="panel" id="p-weight" role="tabpanel" aria-labelledby="tab-weight" hidden>
+          <section>
+            <h2>プリセット</h2>
+            <div class="row-btns" id="presets"></div>
+          </section>
+          <section>
+            <h2>重み w と影響半径 r</h2>
+            <div id="sliders"></div>
+          </section>
+          <section>
+            <h2>表示と補正</h2>
+            <div class="opts">
+              <label><input type="checkbox" id="optRep" checked> 近すぎる施設に斥力をかける（半径 50 m）</label>
+              <label><input type="checkbox" id="optPts" checked> 施設の点を表示</label>
+              <label><input type="checkbox" id="optIso" checked> 等ポテンシャル線を表示</label>
+              <label>濃さ <input type="range" id="optAlpha" min="0.2" max="1" step="0.05" value="0.85" aria-label="ヒートマップの濃さ"></label>
+              <label id="workRow">通勤先 <select id="optWork"></select></label>
+            </div>
+          </section>
+        </div>
+
+        <!-- 結果 -->
+        <div class="panel" id="p-result" role="tabpanel" aria-labelledby="tab-result" hidden>
+          <section>
+            <h2>ポテンシャルの谷（上位の候補地）</h2>
+            <div style="overflow-x:auto">
+              <table>
+                <thead><tr><th></th><th>最寄り駅</th><th class="r">U</th><th class="r">スーパー</th><th class="r">通勤先</th><th></th></tr></thead>
+                <tbody id="cands"><tr><td colspan="6" class="dim">まだ計算していません。「範囲」タブでデータを取得してください。</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+          <section>
+            <h2>地点の内訳</h2>
+            <p class="hint" id="inspEmpty">地図をクリックすると、その地点のカテゴリごとの寄与が表示されます。</p>
+            <div id="inspBody" hidden></div>
+          </section>
+          <section>
+            <h2>データと限界</h2>
+            <ul class="notes" id="notes"><li>データを取得すると、件数と出典が表示されます。</li></ul>
+            <details style="margin-top:10px">
+              <summary>計算式</summary>
+              <div class="formula">U(x) = Σ_c s_c · w_c · Φ_c(x)
+Φ_c = 1 − Π_i (1 − exp(−|x−p_i|²/r_c²))   点源（飽和）
+Φ_c = exp(−d_c(x)²/r_c²)                  線源
+Φ_work = exp(−|x−x_a|²/r²)
+s_c = +1（避けたい） / −1（便利）
+斥力補正: +0.4·w_c·Φ_c(r=50m)
+色は正負で別々に正規化（負側98%点、正側99%点）</div>
+            </details>
+          </section>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/osm.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
