@@ -59,8 +59,11 @@
 
     async function fetchPhoton(q, signal) {
       const c = map.getCenter();
-      const url = `${geocoder.photon}?q=${encodeURIComponent(q)}&limit=8&lat=${c.lat.toFixed(4)}&lon=${c.lng.toFixed(4)}&bbox=${JAPAN_BBOX}`;
-      const r = await fetch(url, { signal }); if (!r.ok) throw new Error('HTTP ' + r.status);
+      // lang=default: 現地の表記（日本なら漢字）で返させる。指定しないとブラウザの言語設定から英語が選ばれ、ローマ字になる
+      const base = `${geocoder.photon}?q=${encodeURIComponent(q)}&limit=8&lat=${c.lat.toFixed(4)}&lon=${c.lng.toFixed(4)}&bbox=${JAPAN_BBOX}`;
+      let r = await fetch(base + '&lang=default', { signal });
+      if (r.status === 400) r = await fetch(base, { signal });   // lang=default を受け付けないサーバーの場合
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       return (j.features || []).filter(f => (f.properties.countrycode || 'JP').toUpperCase() === 'JP').map(f => {
         const p = f.properties, kind = kindOf(p);
@@ -100,7 +103,11 @@
       // 近い位置の重複を除く（Photon を優先）
       const norm = t => t.replace(/(駅|停留場)$/, '');
       const gsiUniq = gs.filter(g => !ph.some(p => distM([p.lat, p.lon], [g.lat, g.lon]) < 150 && norm(p.name) === norm(g.name)));   // 同じ名前・同じ場所だけ除く
-      items = (looksAddr ? [...gsiUniq, ...ph] : [...ph, ...gsiUniq]).slice(0, 10);
+      // 日本語で入力したのにローマ字しかない候補は後ろへ回す
+      const cjk = /[\u3040-\u30ff\u3400-\u9fff]/;
+      const latinOnly = it => cjk.test(q) && !cjk.test(it.name);
+      const merged = looksAddr ? [...gsiUniq, ...ph] : [...ph, ...gsiUniq];
+      items = [...merged.filter(it => !latinOnly(it)), ...merged.filter(latinOnly)].slice(0, 10);
       if (!items.length && pickFirst) {
         try {
           const r = await fetch(geocoder.nominatim + encodeURIComponent(q)); const j = await r.json();
