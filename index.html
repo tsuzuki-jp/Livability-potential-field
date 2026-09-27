@@ -9,12 +9,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="css/style.css?v=0.3.3">
+<script>
+  // 版番号はここだけ。変えると CSS/JS が必ず読み直される（GitHub Pages のキャッシュ対策）
+  window.APP_VERSION = '0.4.0';
+  document.write('<link rel="stylesheet" href="css/style.css?v=' + APP_VERSION + '">');
+</script>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><h1>住環境ポテンシャル地図</h1><span class="tag">U = Σ s·w·Φ · v0.3.3</span></div>
+    <div class="brand"><h1>住環境ポテンシャル地図</h1><span class="tag" id="ver">U = Σ s·w·Φ</span></div>
   </header>
 
   <div class="body">
@@ -79,7 +83,7 @@
               <input type="file" id="loadJson" accept=".json,application/json" hidden>
               <button class="btn small" id="shareBtn" type="button">共有リンクをコピー</button>
             </div>
-            <p class="hint" style="margin-top:6px">保存した JSON は、次回ネットに接続せずに読み込めます。Python 版 potmap が出力した JSON も読み込めます。共有リンクには範囲・通勤先・重みが入ります（データは開いた人が取得します）。</p>
+            <p class="hint" style="margin-top:6px">保存した JSON は、次回ネットに接続せずに読み込めます。共有リンクには範囲・通勤先・重みが入ります（データは開いた人が取得します）。</p>
           </section>
         </div>
 
@@ -142,10 +146,14 @@ s_c = +1（避けたい） / −1（便利）
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="js/config.js?v=0.3.3"></script>
-<script src="js/osm.js?v=0.3.3"></script>
-<script src="js/engine.js?v=0.3.3"></script>
-<script src="js/search.js?v=0.3.3"></script>
-<script src="js/app.js?v=0.3.3"></script>
+<script>
+  (function () {
+    if (!window.L) {
+      document.getElementById('map').innerHTML = '<p style="padding:24px;max-width:60ch">地図ライブラリ（Leaflet）を cdnjs から読み込めませんでした。ネットワーク制限か、一時的な障害の可能性があります。ページを再読み込みするか、時間をおいて試してください。</p>';
+      return;
+    }
+    for (const f of ['config', 'osm', 'engine', 'search', 'app']) document.write('<script src="js/' + f + '.js?v=' + APP_VERSION + '"><\/script>');
+  })();
+</script>
 </body>
 </html>

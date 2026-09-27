@@ -13,11 +13,15 @@
  */
 window.PM_CONFIG = {
   categories: [
-    { id: 'night', label: '飲み屋・バー・クラブ', sign: +1, weight: 8, radius: 300, radius_max: 800, kind: 'point',
-      osm: [{ type: 'nwr', tags: { amenity: '^(bar|pub|nightclub|biergarten|stripclub)$' } }] },
+    { id: 'night', label: '居酒屋・バー・クラブ', sign: +1, weight: 8, radius: 300, radius_max: 800, kind: 'point',
+      osm: [{ type: 'nwr', tags: { amenity: '^(bar|pub|nightclub|biergarten|stripclub)$' } },
+            { type: 'nwr', tags: { amenity: '^restaurant$', cuisine: 'izakaya' } },       // 日本の居酒屋はこの登録が標準
+            { type: 'nwr', tags: { amenity: '^(karaoke_box|love_hotel)$' } }] },
     { id: 'gambling', label: 'パチンコ・ゲームセンター', sign: +1, weight: 4, radius: 200, radius_max: 600, kind: 'point',
       osm: [{ type: 'nwr', tags: { amenity: '^(gambling|casino)$' } },
-            { type: 'nwr', tags: { leisure: '^(adult_gaming_centre|amusement_arcade)$' } }] },
+            { type: 'nwr', tags: { leisure: '^(adult_gaming_centre|amusement_arcade)$' } },
+            { type: 'nwr', tags: { gambling: 'pachinko|slot' } },                          // amenity が無くても gambling= だけの登録がある
+            { type: 'nwr', tags: { shop: '^(pachinko|lottery)$' } }] },
     { id: 'venue', label: 'ライブ会場・ホール・スタジアム', sign: +1, weight: 4, radius: 250, radius_max: 800, kind: 'point',
       osm: [{ type: 'nwr', tags: { amenity: '^(music_venue|theatre|events_venue|concert_hall|arts_centre)$' } },
             { type: 'nwr', tags: { leisure: '^stadium$' } }] },
@@ -32,8 +36,9 @@ window.PM_CONFIG = {
       osm: [{ type: 'nwr', tags: { shop: '^(supermarket|department_store)$' } }] },
     { id: 'conv', label: 'コンビニ', sign: -1, weight: 3, radius: 300, radius_max: 1000, kind: 'point', repel: true,
       osm: [{ type: 'nwr', tags: { shop: '^convenience$' } }] },
-    { id: 'drug', label: 'ドラッグストア', sign: -1, weight: 3, radius: 600, radius_max: 1500, kind: 'point',
-      osm: [{ type: 'nwr', tags: { shop: '^chemist$' } }] },
+    { id: 'drug', label: 'ドラッグストア・薬局', sign: -1, weight: 3, radius: 600, radius_max: 1500, kind: 'point',
+      osm: [{ type: 'nwr', tags: { shop: '^(chemist|drugstore)$' } },
+            { type: 'nwr', tags: { amenity: '^pharmacy$' } }] },                           // 日本のドラッグストアは pharmacy 登録も多い
     { id: 'fastfood', label: 'ファストフード', sign: -1, weight: 2, radius: 400, radius_max: 1000, kind: 'point',
       osm: [{ type: 'nwr', tags: { amenity: '^fast_food$' } }] },
     { id: 'station', label: '駅・停留場', sign: -1, weight: 4, radius: 800, radius_max: 2000, kind: 'point', repel: true, labels: true,

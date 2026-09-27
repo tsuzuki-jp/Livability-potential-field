@@ -84,6 +84,7 @@
     S.region = { name: name != null ? name : S.region.name, bbox };
     drawRegion(); saveState();
     if (changed && S.dataset) { S.stale = true; setStatus('対象範囲が変わりました。「データを取得して計算」で地図を更新してください。'); }
+    updateStale();
   }
   $('useView').addEventListener('click', () => {
     const b = map.getBounds();
@@ -162,9 +163,17 @@
     }
   }
 
+  function updateStale() {
+    map.getContainer().classList.toggle('stale', !!(S.stale && S.dataset));
+    let el = document.getElementById('staleNote');
+    if (S.stale && S.dataset) {
+      if (!el) { el = document.createElement('div'); el.id = 'staleNote'; el.className = 'stale-note'; el.innerHTML = '表示中の色は前の範囲の結果です。<button class="btn small" type="button" id="staleFetch">この範囲で取得して計算</button>'; map.getContainer().appendChild(el);
+        el.querySelector('#staleFetch').addEventListener('click', () => { selectTab('area'); doFetch(); }); }
+    } else if (el) el.remove();
+  }
   function useDataset(ds, fromFile) {
     if (!ds || !ds.region || !Array.isArray(ds.region.bbox) || !Array.isArray(ds.categories)) throw new Error('データの形式が正しくありません。');
-    S.dataset = ds; S.stale = false;
+    S.dataset = ds; S.stale = false; updateStale();
     if (fromFile) {
       if (Array.isArray(ds.anchors) && ds.anchors.length) S.anchors = ds.anchors.map(a => ({ name: a.name, lat: +a.lat, lon: +a.lon }));
       if (ds.ui) { Object.assign(S.w, ds.ui.w || {}); Object.assign(S.r, ds.ui.r || {}); }
@@ -421,6 +430,7 @@
   ensureWeights();
   if (S.sizeKm) $('rsize').value = String(S.sizeKm);
   $('optRep').checked = S.rep; $('optPts').checked = S.pts; $('optIso').checked = S.iso; $('optAlpha').value = S.alpha;
+  if (window.APP_VERSION) $('ver').textContent += ' · v' + window.APP_VERSION;
   buildPresets(); buildSliders(); drawRegion(); renderAnchors();
   map.fitBounds(bboxBounds(S.region.bbox));
   if (fromLink) setStatus('共有リンクの条件を読み込みました。「データを取得して計算」を押すと地図を作成します。');
