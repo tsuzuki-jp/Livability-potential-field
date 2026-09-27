@@ -24,14 +24,14 @@
 
   function saveState() {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ region: S.region, anchors: S.anchors, w: S.w, r: S.r, rep: S.rep, pts: S.pts, iso: S.iso, alpha: S.alpha, work: S.work }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ sizeKm: S.sizeKm, region: S.region, anchors: S.anchors, w: S.w, r: S.r, rep: S.rep, pts: S.pts, iso: S.iso, alpha: S.alpha, work: S.work }));
     } catch (e) { /* 保存できなくても動作は続ける */ }
   }
   function loadState() {
     try {
       const o = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
       if (o && o.region && Array.isArray(o.region.bbox)) Object.assign(S, { region: o.region, anchors: o.anchors || [], w: o.w || {}, r: o.r || {},
-        rep: o.rep !== false, pts: o.pts !== false, iso: o.iso !== false, alpha: o.alpha || 0.85, work: o.work || 0 });
+        sizeKm: o.sizeKm || 8, rep: o.rep !== false, pts: o.pts !== false, iso: o.iso !== false, alpha: o.alpha || 0.85, work: o.work || 0 });
     } catch (e) { /* 無視 */ }
     const m = location.hash.match(/^#s=(.+)$/);
     if (m) {
@@ -91,6 +91,17 @@
   });
   $('showRegion').addEventListener('click', () => map.fitBounds(bboxBounds(S.region.bbox)));
   $('rname').addEventListener('input', e => { S.region.name = e.target.value; saveState(); });
+  // 場所を選ぶ → その周りの「広さ」四方を対象範囲にして地図を合わせる
+  function squareAround(lat, lon, km) {
+    const h = km * 500, dLat = h / 111320, dLon = h / (111320 * Math.cos(lat * Math.PI / 180));
+    return [lat - dLat, lon - dLon, lat + dLat, lon + dLon].map(v => +v.toFixed(5));
+  }
+  const sizeKm = () => +$('rsize').value || 8;
+  $('rsize').addEventListener('change', () => {
+    S.sizeKm = sizeKm();
+    const b = S.region.bbox, c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+    setRegion(squareAround(c[0], c[1], S.sizeKm)); map.fitBounds(bboxBounds(S.region.bbox));
+  });
 
   // ------------------------------------------------------------ 通勤先
   function anchorIcon() { return L.divIcon({ className: '', html: '<div class="anchor-icon"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }); }
@@ -392,6 +403,13 @@
   // ------------------------------------------------------------ 検索（js/search.js）
   try {
     window.PM_Search.init({ map, input: $('q'), list: $('qres'), geocoder: C.geocoder, onUseView: () => { $('useView').click(); selectTab('area'); } });
+    window.PM_Search.init({ map, input: $('rname'), list: $('rres'), geocoder: C.geocoder, move: false, popup: false,
+      onPick: it => {
+        const bbox = squareAround(it.lat, it.lon, sizeKm());
+        setRegion(bbox, it.name);
+        map.flyToBounds(bboxBounds(bbox), { duration: 0.8 });
+        setStatus(`「${esc(it.name)}」${it.sub ? '（' + esc(it.sub) + '）' : ''}を中心に ${sizeKm()} km 四方を対象範囲にしました。「データを取得して計算」を押してください。`);
+      } });
   } catch (e) { console.error('検索の初期化に失敗しました', e); }   // 検索が壊れても地図と計算は動かす
 
   // ------------------------------------------------------------ テーマ
@@ -402,6 +420,7 @@
   // ------------------------------------------------------------ 起動
   const fromLink = loadState();
   ensureWeights();
+  if (S.sizeKm) $('rsize').value = String(S.sizeKm);
   $('optRep').checked = S.rep; $('optPts').checked = S.pts; $('optIso').checked = S.iso; $('optAlpha').value = S.alpha;
   buildPresets(); buildSliders(); drawRegion(); renderAnchors();
   map.fitBounds(bboxBounds(S.region.bbox));

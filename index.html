@@ -9,12 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="css/style.css?v=0.3.0">
+<link rel="stylesheet" href="css/style.css?v=0.3.1">
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><h1>住環境ポテンシャル地図</h1><span class="tag">U = Σ s·w·Φ · v0.3.0</span></div>
+    <div class="brand"><h1>住環境ポテンシャル地図</h1><span class="tag">U = Σ s·w·Φ · v0.3.1</span></div>
     <div class="search" role="search">
       <input id="q" type="search" placeholder="地名・駅名・住所で移動（例：宇都宮駅）" autocomplete="off" spellcheck="false"
         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="qres" aria-label="地名・駅名・住所で検索">
@@ -37,7 +37,20 @@
           <section>
             <h2>対象範囲</h2>
             <div class="region-box">
-              <label for="rname">名前</label><input id="rname" type="text" placeholder="例：宇都宮">
+              <label for="rname">場所</label>
+              <div class="search inline">
+                <input id="rname" type="text" placeholder="地名・駅名を入れて候補から選ぶ（例：久我山駅）" autocomplete="off" spellcheck="false"
+                  role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rres" aria-label="対象範囲の中心にする場所">
+                <ul id="rres" role="listbox" aria-label="場所の候補" hidden></ul>
+              </div>
+              <label for="rsize">広さ</label>
+              <select id="rsize">
+                <option value="4">4 km 四方（約 16 km²）</option>
+                <option value="6">6 km 四方（約 36 km²）</option>
+                <option value="8" selected>8 km 四方（約 64 km²）</option>
+                <option value="12">12 km 四方（約 144 km²）</option>
+                <option value="16">16 km 四方（約 256 km²）</option>
+              </select>
               <span>範囲</span><span class="num" id="rbbox">—</span>
               <span>面積</span><span class="num" id="rarea">—</span>
             </div>
@@ -45,7 +58,7 @@
               <button class="btn" id="useView" type="button">表示中の範囲を対象にする</button>
               <button class="btn" id="showRegion" type="button">対象範囲を表示</button>
             </div>
-            <p class="hint" style="margin-top:8px">地図を動かして見たい地域を表示し、「表示中の範囲を対象にする」を押してください。広すぎると取得に時間がかかります（目安は 300 km² 以下）。</p>
+            <p class="hint" style="margin-top:8px">「場所」に地名や駅名を入れて候補を選ぶと、そこを中心に「広さ」の範囲が対象になり、地図も移動します。地図を動かしてから「表示中の範囲を対象にする」を押して決めることもできます（目安は 300 km² 以下）。</p>
           </section>
 
           <section>
@@ -134,10 +147,10 @@ s_c = +1（避けたい） / −1（便利）
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="js/config.js?v=0.3.0"></script>
-<script src="js/osm.js?v=0.3.0"></script>
-<script src="js/engine.js?v=0.3.0"></script>
-<script src="js/search.js?v=0.3.0"></script>
-<script src="js/app.js?v=0.3.0"></script>
+<script src="js/config.js?v=0.3.1"></script>
+<script src="js/osm.js?v=0.3.1"></script>
+<script src="js/engine.js?v=0.3.1"></script>
+<script src="js/search.js?v=0.3.1"></script>
+<script src="js/app.js?v=0.3.1"></script>
 </body>
 </html>

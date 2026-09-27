@@ -51,7 +51,8 @@
   const ZOOM = { '駅': 16, '停留場': 16, '市': 12, '町': 13, '村': 13, '地区': 15, '集落': 15, '地名': 15, '行政区域': 12, '都道府県': 9, '住所': 17, '島': 12, '空港': 14, '道路': 16 };
   const uniq = arr => arr.filter((x, i) => x && arr.indexOf(x) === i);
 
-  function init({ map, input, list, geocoder, onUseView }) {
+  function init({ map, input, list, geocoder, onUseView, onPick, move = true, popup = true }) {
+    const pre = (list.id || 'q') + '-opt-';
     let diag = { osm: '', gsi: '' }, items = [], itemsFor = '', active = -1, seq = 0, timer = null, ctrl = null, marker = null;
 
     const setExpanded = on => { list.hidden = !on; input.setAttribute('aria-expanded', String(on)); if (!on) { active = -1; input.removeAttribute('aria-activedescendant'); } };
@@ -97,7 +98,8 @@
       if (gs.length) diag.gsi = gs.length + '件'; else if (!diag.gsi) diag.gsi = '0件';
       if (my !== seq) return;
       // 近い位置の重複を除く（Photon を優先）
-      const gsiUniq = gs.filter(g => !ph.some(p => distM([p.lat, p.lon], [g.lat, g.lon]) < 150 && (p.name.includes(g.name) || g.name.includes(p.name))));
+      const norm = t => t.replace(/(駅|停留場)$/, '');
+      const gsiUniq = gs.filter(g => !ph.some(p => distM([p.lat, p.lon], [g.lat, g.lon]) < 150 && norm(p.name) === norm(g.name)));   // 同じ名前・同じ場所だけ除く
       items = (looksAddr ? [...gsiUniq, ...ph] : [...ph, ...gsiUniq]).slice(0, 10);
       if (!items.length && pickFirst) {
         try {
@@ -123,7 +125,7 @@
           <br><span style="font-size:11px">OSM: ${esc(diag.osm || '—')} ／ 地理院: ${esc(diag.gsi || '—')}</span></li>`;
         setExpanded(true); return;
       }
-      list.innerHTML = items.map((it, k) => `<li role="option" id="qopt-${k}" data-k="${k}" aria-selected="${k === active}">
+      list.innerHTML = items.map((it, k) => `<li role="option" id="${pre}${k}" data-k="${k}" aria-selected="${k === active}">
           <span class="qname">${esc(it.name)}</span><span class="qkind">${esc(it.kind)}</span>
           <span class="qsub">${esc(it.sub || '')}</span></li>`).join('');
       setExpanded(true);
@@ -134,17 +136,21 @@
       list.querySelectorAll('[role=option]').forEach((li, i) => li.setAttribute('aria-selected', String(i === k)));
       const el = $opt(k); if (el) { input.setAttribute('aria-activedescendant', el.id); el.scrollIntoView({ block: 'nearest' }); }
     }
-    const $opt = k => list.querySelector('#qopt-' + k);
+    const $opt = k => document.getElementById(pre + k);
 
     function pick(k) {
       const it = items[k]; if (!it) return;
       setExpanded(false);
       input.value = it.name;
       const ll = L.latLng(it.lat, it.lon);
-      if (it.bounds && !['駅', '停留場', '住所'].includes(it.kind)) map.flyToBounds(it.bounds, { maxZoom: ZOOM[it.kind] || 15, duration: 0.8, padding: [20, 20] });
-      else map.flyTo(ll, ZOOM[it.kind] || 16, { duration: 0.8 });
+      if (move) {
+        if (it.bounds && !['駅', '停留場', '住所'].includes(it.kind)) map.flyToBounds(it.bounds, { maxZoom: ZOOM[it.kind] || 15, duration: 0.8, padding: [20, 20] });
+        else map.flyTo(ll, ZOOM[it.kind] || 16, { duration: 0.8 });
+      }
+      if (onPick) onPick(it);
       if (marker) marker.remove();
-      marker = L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="place-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), keyboard: false }).addTo(map);
+      marker = L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="place-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), keyboard: false, title: it.name }).addTo(map);
+      if (!popup) return;
       const html = `<div class="place-pop"><b>${esc(it.name)}</b><span class="dim">${esc([it.kind, it.sub].filter(Boolean).join(' · '))}</span>
         <button class="btn small" type="button" data-use-view>この表示範囲を対象にする</button></div>`;
       marker.bindPopup(html, { offset: [0, -6], autoPan: false });
@@ -177,7 +183,9 @@
     list.addEventListener('mousedown', e => e.preventDefault());   // 入力欄のフォーカスを保つ
     list.addEventListener('click', e => { const li = e.target.closest('[role=option]'); if (li) pick(+li.dataset.k); });
     list.addEventListener('mousemove', e => { const li = e.target.closest('[role=option]'); if (li && +li.dataset.k !== active) highlight(+li.dataset.k); });
-    document.addEventListener('click', e => { if (!e.target.closest('.search')) setExpanded(false); });
+    const wrap = input.parentElement;
+    document.addEventListener('click', e => { if (!wrap.contains(e.target)) setExpanded(false); });
+    input.addEventListener('blur', () => setTimeout(() => { if (!wrap.contains(document.activeElement)) setExpanded(false); }, 150));
   }
 
   window.PM_Search = { init };
