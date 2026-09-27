@@ -389,28 +389,8 @@
     const nx = ts[(cur + (e.key === 'ArrowRight' ? 1 : 2)) % 3]; selectTab(nx); $('tab-' + nx).focus();
   });
 
-  // ------------------------------------------------------------ 検索
-  let qTimer = null;
-  $('q').addEventListener('input', () => { clearTimeout(qTimer); const v = $('q').value.trim(); if (v.length < 2) { $('qres').hidden = true; return; } qTimer = setTimeout(() => search(v), 450); });
-  $('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(qTimer); search($('q').value.trim()); } if (e.key === 'Escape') $('qres').hidden = true; });
-  async function search(v) {
-    if (!v) return;
-    let items = [];
-    try {
-      const r = await fetch(C.geocoder.gsi + encodeURIComponent(v)); const j = await r.json();
-      items = (j || []).slice(0, 8).map(f => ({ t: f.properties.title, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] }));
-    } catch (e) { /* 国土地理院が使えなければ Nominatim */ }
-    if (!items.length) {
-      try { const r = await fetch(C.geocoder.nominatim + encodeURIComponent(v)); const j = await r.json();
-        items = j.map(h => ({ t: h.display_name, lat: +h.lat, lon: +h.lon })); } catch (e) { /* 無視 */ }
-    }
-    const ul = $('qres');
-    ul.innerHTML = items.length ? items.map((it, k) => `<li><button type="button" data-k="${k}">${esc(it.t)}</button></li>`).join('') : '<li class="dim" style="padding:6px 8px">見つかりませんでした</li>';
-    ul.hidden = false; ul._items = items;
-  }
-  $('qres').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const it = $('qres')._items[+b.dataset.k];
-    map.setView([it.lat, it.lon], 14); $('qres').hidden = true; });
-  document.addEventListener('click', e => { if (!e.target.closest('.search')) $('qres').hidden = true; });
+  // ------------------------------------------------------------ 検索（js/search.js）
+  window.PM_Search.init({ map, input: $('q'), list: $('qres'), geocoder: C.geocoder, onUseView: () => { $('useView').click(); selectTab('area'); } });
 
   // ------------------------------------------------------------ テーマ
   function retheme() { if (regionRect) regionRect.setStyle({ color: css('--ink') }); if (E) { paintHeat(); drawIso(); } drawPoints(); if (pin) pin.setStyle({ color: css('--ink') }); }

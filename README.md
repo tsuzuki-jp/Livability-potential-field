@@ -14,7 +14,7 @@ U(x) = Σ_c s_c · w_c · Φ_c(x)
 
 ## 使い方
 
-1. 上の検索欄に地名や駅名を入れて移動し、見たい地域が画面に収まるようにします。
+1. 上の検索欄に地名・駅名・住所を入れると候補が出ます（↑↓で選んで Enter、またはクリック）。候補には都道府県・市区町村と種類（駅・市・地区・住所など）が付くので、同名の場所も区別できます。選ぶと地図がその場所へ移動します。
 2. 「範囲」タブで **表示中の範囲を対象にする** を押します（目安は 300 km² 以下）。
 3. 通勤先があれば **地図をクリックして追加** で登録します（ドラッグで移動、名前は編集可）。
 4. **データを取得して計算** を押します。数秒〜数十秒で地図に色が付きます。
@@ -70,7 +70,7 @@ python -m http.server 8000     # ブラウザで http://localhost:8000 を開く
 
 - 施設・道路・線路：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors（ODbL）
 - 背景地図：[地理院タイル](https://maps.gsi.go.jp/development/ichiran.html)（国土地理院）
-- 地名検索：国土地理院の住所検索 API。見つからないときは [Nominatim](https://operations.osmfoundation.org/policies/nominatim/) を使います。
+- 地名検索：[Photon](https://photon.komoot.io/)（OpenStreetMap ベース、入力中の候補）と国土地理院の住所検索 API（番地まで）を併用し、市区町村名は国土地理院の市区町村コード表から付けています。どちらでも見つからないときだけ [Nominatim](https://operations.osmfoundation.org/policies/nominatim/) を使います。
 - 画面右下に出典が表示されます。改変して公開する場合も、出典の表示は残してください。
 - Overpass API は有志が運営する無料のサービスです。同じ範囲を何度も取得せず、一度取得したら **JSON で保存** して使い回してください。混雑しているときは自動で別のサーバーを試します。
 
@@ -88,6 +88,7 @@ index.html        画面
 css/style.css     見た目（ライト／ダーク対応）
 js/config.js      カテゴリ・重み・地図タイル・API の設定
 js/osm.js         Overpass クエリの生成・取得・分類
+js/search.js      地名・駅名・住所の検索（候補表示・地図の移動）
 js/engine.js      ポテンシャル場の計算（地図ライブラリに依存しない）
 js/app.js         地図と画面の制御（Leaflet 1.9.4 を cdnjs から読み込み）
 ```

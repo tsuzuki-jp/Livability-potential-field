@@ -69,7 +69,9 @@ window.PM_CONFIG = {
     'https://overpass.private.coffee/api/interpreter'
   ],
   geocoder: {
-    gsi: 'https://msearch.gsi.go.jp/address-search/AddressSearch?q=',
+    photon: 'https://photon.komoot.io/api/',                                   // 入力中の候補（OpenStreetMap ベース）
+    gsi: 'https://msearch.gsi.go.jp/address-search/AddressSearch?q=',          // 住所（番地まで）
+    muni: 'https://maps.gsi.go.jp/js/muni.js',                                  // 市区町村コード表（候補の地域名表示に使用）
     nominatim: 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=jp&limit=6&q='
   },
   tiles: {
