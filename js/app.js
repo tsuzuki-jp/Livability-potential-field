@@ -402,7 +402,6 @@
 
   // ------------------------------------------------------------ 検索（js/search.js）
   try {
-    window.PM_Search.init({ map, input: $('q'), list: $('qres'), geocoder: C.geocoder, onUseView: () => { $('useView').click(); selectTab('area'); } });
     window.PM_Search.init({ map, input: $('rname'), list: $('rres'), geocoder: C.geocoder, move: false, popup: false,
       onPick: it => {
         const bbox = squareAround(it.lat, it.lon, sizeKm());
