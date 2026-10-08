@@ -41,10 +41,21 @@ window.PM_CONFIG = {
             { type: 'nwr', tags: { amenity: '^pharmacy$' } }] },                           // 日本のドラッグストアは pharmacy 登録も多い
     { id: 'fastfood', label: 'ファストフード', sign: -1, weight: 2, radius: 400, radius_max: 1000, kind: 'point',
       osm: [{ type: 'nwr', tags: { amenity: '^fast_food$' } }] },
+    { id: 'bus', label: 'バス停', sign: -1, weight: 3, radius: 400, radius_max: 1000, kind: 'point',
+      mergeSameNameM: 80,      // 上り・下りで道路の両側にある同名のバス停を1つにまとめる
+      routeWeighted: true,     // 経由する系統数で重み付けできる（路線データから数える）
+      osm: [{ type: 'node', tags: { highway: '^bus_stop$' } },
+            { type: 'nwr', tags: { public_transport: '^platform$', bus: '^yes$' } }] },
     { id: 'station', label: '駅・停留場', sign: -1, weight: 4, radius: 800, radius_max: 2000, kind: 'point', repel: true, labels: true,
       osm: [{ type: 'nwr', tags: { railway: '^(station|halt|tram_stop)$' } }] },
     { id: 'work', label: '通勤先への近さ', sign: -1, weight: 5, radius: 3000, radius_max: 10000, kind: 'anchor' }
   ],
+
+  // 路線図（OpenStreetMap の route リレーション）。表示と、バス停の系統数の数え上げに使う
+  routes: {
+    rail: ['train', 'subway', 'light_rail', 'tram', 'monorail'],
+    bus: ['bus']
+  },
 
   // プリセット: 正側（nuisance）と負側（amenity）の重みの倍率、anchor は通勤先の重み
   presets: {

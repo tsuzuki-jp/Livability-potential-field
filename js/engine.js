@@ -20,7 +20,10 @@
       this.NX = Math.ceil(this.WM / this.CELL) + 1; this.NY = Math.ceil(this.HM / this.CELL) + 1; this.NC = this.NX * this.NY;
       this.cats = data.categories.map(c => {
         const o = { ...c };
-        if (c.points) { o.xy = new Float64Array(c.points.length * 2); c.points.forEach((p, k) => { const [x, y] = this.toXY(p[0], p[1]); o.xy[2 * k] = x; o.xy[2 * k + 1] = y; }); }
+        if (c.points) {
+          o.xy = new Float64Array(c.points.length * 2); c.points.forEach((p, k) => { const [x, y] = this.toXY(p[0], p[1]); o.xy[2 * k] = x; o.xy[2 * k + 1] = y; });
+          if (c.routeWeighted) o.m = Float32Array.from(c.points, p => p[3] != null ? p[3] : 1);   // 点ごとの強さ（バス停の系統数）
+        }
         if (c.lines) { const s = []; for (const l of c.lines) for (let k = 0; k + 1 < l.length; k++) { const a = this.toXY(l[k][0], l[k][1]), b = this.toXY(l[k + 1][0], l[k + 1][1]); s.push(a[0], a[1], b[0], b[1]); } o.segs = new Float64Array(s); }
         return o;
       });
@@ -36,14 +39,14 @@
     /* 画像の四隅（セル中心 i*CELL の外側に半セル） */
     imageBounds() { const h = this.CELL / 2; const a = this.toLL(-h, -h), b = this.toLL((this.NX - 1) * this.CELL + h, (this.NY - 1) * this.CELL + h); return [[b[0], a[1]], [a[0], b[1]]]; }
 
-    ptsField(xy, r) {
+    ptsField(xy, r, m) {
       const { NX, NY, NC, CELL } = this, L = new Float32Array(NC), R = Math.ceil(3 * r / CELL), r2 = r * r;
       for (let k = 0; k < xy.length; k += 2) {
-        const px = xy[k], py = xy[k + 1], ci = Math.round(px / CELL), cj = Math.round(py / CELL);
+        const px = xy[k], py = xy[k + 1], ci = Math.round(px / CELL), cj = Math.round(py / CELL), mk = m ? m[k >> 1] : 1;
         const j0 = Math.max(0, cj - R), j1 = Math.min(NY - 1, cj + R), i0 = Math.max(0, ci - R), i1 = Math.min(NX - 1, ci + R);
         for (let j = j0; j <= j1; j++) {
           const dy = j * CELL - py, dy2 = dy * dy, row = j * NX;
-          for (let i = i0; i <= i1; i++) { const dx = i * CELL - px, q = (dx * dx + dy2) / r2; if (q > 9) continue; L[row + i] += Math.log(1 - Math.min(0.999, Math.exp(-q))); }
+          for (let i = i0; i <= i1; i++) { const dx = i * CELL - px, q = (dx * dx + dy2) / r2; if (q > 9) continue; L[row + i] += Math.log(1 - Math.min(0.999, mk * Math.exp(-q))); }
         }
       }
       for (let q = 0; q < NC; q++) L[q] = 1 - Math.exp(L[q]);
@@ -68,14 +71,15 @@
       return f;
     }
     field(c, r, anchorIdx) {
-      const key = c.id + ':' + r + (c.kind === 'anchor' ? ':' + anchorIdx : '');
+      const weighted = !!(c.m && this.routeWeighting);
+      const key = c.id + ':' + r + (c.kind === 'anchor' ? ':' + anchorIdx : '') + (weighted ? ':m' : '');
       if (this.cache.has(key)) return this.cache.get(key);
       let f;
       if (c.kind === 'anchor') {
         const a = this.anchors[anchorIdx];
         f = a ? this.ptsField(new Float64Array(this.toXY(a.lat, a.lon)), r) : new Float32Array(this.NC);
       } else if (c.kind === 'line') f = this.lineField(c.segs || new Float64Array(0), r);
-      else f = this.ptsField(c.xy || new Float64Array(0), r);
+      else f = this.ptsField(c.xy || new Float64Array(0), r, weighted ? c.m : null);
       this.cache.set(key, f); return f;
     }
     repField(c) { const k = 'rep:' + c.id; if (!this.cache.has(k)) this.cache.set(k, this.ptsField(c.xy || new Float64Array(0), 50)); return this.cache.get(k); }
@@ -84,6 +88,7 @@
 
     /* state = { w:{id:重み}, r:{id:半径}, rep:bool, work:通勤先index } */
     compute(state) {
+      this.routeWeighting = state.routeWeight !== false;
       const { NC } = this, U = this.U; U.fill(0);
       for (const c of this.cats) {
         const w = state.w[c.id]; if (!w) continue;
@@ -98,6 +103,7 @@
       return U;
     }
     contributions(state, x, y) {
+      this.routeWeighting = state.routeWeight !== false;
       const q = this.cellIndex(x, y);
       return this.cats.map(c => {
         const w = state.w[c.id]; let v = w ? c.sign * w * this.field(c, state.r[c.id], state.work)[q] : 0;

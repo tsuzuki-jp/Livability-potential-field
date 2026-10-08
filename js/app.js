@@ -14,7 +14,7 @@
   const S = {
     region: { name: C.initial.name, bbox: C.initial.bbox.slice() },
     anchors: C.initial.anchors.map(a => ({ ...a })),
-    w: {}, r: {}, rep: true, pts: true, iso: true, alpha: 0.85, work: 0,
+    w: {}, r: {}, rep: true, pts: true, iso: true, alpha: 0.85, work: 0, showRail: true, showBus: true, routeWeight: true,
     dataset: null, stale: false, pin: null, addMode: false
   };
   let E = null;   // Engine
@@ -24,14 +24,14 @@
 
   function saveState() {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ sizeKm: S.sizeKm, region: S.region, anchors: S.anchors, w: S.w, r: S.r, rep: S.rep, pts: S.pts, iso: S.iso, alpha: S.alpha, work: S.work }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ sizeKm: S.sizeKm, region: S.region, anchors: S.anchors, w: S.w, r: S.r, rep: S.rep, pts: S.pts, iso: S.iso, alpha: S.alpha, work: S.work, showRail: S.showRail, showBus: S.showBus, routeWeight: S.routeWeight }));
     } catch (e) { /* 保存できなくても動作は続ける */ }
   }
   function loadState() {
     try {
       const o = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
       if (o && o.region && Array.isArray(o.region.bbox)) Object.assign(S, { region: o.region, anchors: o.anchors || [], w: o.w || {}, r: o.r || {},
-        sizeKm: o.sizeKm || 8, rep: o.rep !== false, pts: o.pts !== false, iso: o.iso !== false, alpha: o.alpha || 0.85, work: o.work || 0 });
+        sizeKm: o.sizeKm || 8, rep: o.rep !== false, pts: o.pts !== false, iso: o.iso !== false, alpha: o.alpha || 0.85, work: o.work || 0, showRail: o.showRail !== false, showBus: o.showBus !== false, routeWeight: o.routeWeight !== false });
     } catch (e) { /* 無視 */ }
     const m = location.hash.match(/^#s=(.+)$/);
     if (m) {
@@ -64,7 +64,9 @@
   new Readout({ position: 'bottomleft' }).addTo(map);
 
   const canvasR = L.canvas({ padding: 0.5 });
-  const layers = { iso: L.layerGroup().addTo(map), pts: L.layerGroup().addTo(map), cand: L.layerGroup().addTo(map), anchor: L.layerGroup().addTo(map) };
+  map.createPane('routes'); map.getPane('routes').style.zIndex = 420;   // ヒートマップ（400）の上、点（canvas）の下
+  const routeR = L.canvas({ padding: 0.5, pane: 'routes' });
+  const layers = { routes: L.layerGroup().addTo(map), iso: L.layerGroup().addTo(map), pts: L.layerGroup().addTo(map), cand: L.layerGroup().addTo(map), anchor: L.layerGroup().addTo(map) };
   let heat = null, regionRect = null, pin = null;
   const bboxBounds = b => L.latLngBounds([b[0], b[1]], [b[2], b[3]]);
   const areaKm2 = b => (b[2] - b[0]) * 111.32 * (b[3] - b[1]) * 111.32 * Math.cos((b[0] + b[2]) / 2 * Math.PI / 180);
@@ -145,14 +147,14 @@
   async function doFetch() {
     const b = S.region.bbox, a = areaKm2(b);
     if (a > C.area.maxKm2) { setStatus(`範囲が ${a.toFixed(0)} km² あり、上限（${C.area.maxKm2} km²）を超えています。地図を拡大してから「表示中の範囲を対象にする」を押してください。`, true); return; }
-    const q = OSM.buildQuery(C.categories.filter(c => c.kind !== 'anchor'), padBbox(b, C.fetchPadM));
+    const q = OSM.buildQuery(C.categories.filter(c => c.kind !== 'anchor'), padBbox(b, C.fetchPadM), C.routes);
     controller = new AbortController();
     $('fetchBtn').disabled = true; $('cancelBtn').hidden = false;
     const t0 = performance.now();
     try {
       const osm = await OSM.fetchOverpass(q, C.overpass, { signal: controller.signal, onStatus: m => setStatus(esc(m)) });
       setStatus('取得したデータを分類しています…');
-      const ds = OSM.toDataset(osm, C.categories, { bbox: b.slice(), name: S.region.name, anchors: S.anchors });
+      const ds = OSM.toDataset(osm, C.categories, { bbox: b.slice(), name: S.region.name, anchors: S.anchors, routes: C.routes });
       useDataset(ds, false);
       const n = Object.values(ds.counts).reduce((x, y) => x + y, 0);
       setStatus(`取得しました（${n.toLocaleString()} 件、${((performance.now() - t0) / 1000).toFixed(1)} 秒）。「結果」タブに候補地が出ています。`);
@@ -182,7 +184,7 @@
     drawRegion(); renderAnchors(); ensureWeights(); buildSliders();
     E = new Engine(ds, { targetCells: C.grid.targetCells });
     E.resetAnchors(S.anchors.map(a => ({ ...a })));
-    drawPoints(); renderNotes(); saveState();
+    drawRoutes(); drawPoints(); renderNotes(); saveState();
     $('saveJson').disabled = false;
     schedule(() => selectTab('result'));
   }
@@ -198,7 +200,7 @@
       try { recompute(); } finally { veil.remove(); pending = false; const f = afterRun; afterRun = []; f.forEach(fn => fn()); }
     }), 0);
   }
-  function engineState() { return { w: S.w, r: S.r, rep: S.rep, work: S.work }; }
+  function engineState() { return { w: S.w, r: S.r, rep: S.rep, work: S.work, routeWeight: S.routeWeight }; }
   function recompute() {
     E.compute(engineState());
     paintHeat(); drawIso(); updateCandidates();
@@ -223,6 +225,20 @@
       L.polyline(segs, { renderer: canvasR, color: ink, weight: 0.8, opacity: level < 0 ? 0.4 : 0.3, dashArray: level < 0 ? null : '3 3', interactive: false, smoothFactor: 1 }).addTo(layers.iso);
     }
   }
+  function drawRoutes() {
+    layers.routes.clearLayers();
+    const routes = (S.dataset && S.dataset.routes) || [];
+    const okColour = c => /^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(c) ? (c[0] === '#' ? c : '#' + c) : (/^[a-z]+$/i.test(c) ? c : '');
+    const draw = (kind, opt) => routes.filter(r => r.kind === kind).forEach(r => {
+      L.polyline(r.lines, { renderer: routeR, interactive: true, ...opt(r) })
+        .bindTooltip(esc(r.name) + (kind === 'bus' ? '（バス）' : ''), { sticky: true }).addTo(layers.routes);
+    });
+    if (S.showBus) draw('bus', r => ({ color: okColour(r.colour) || css('--bus'), weight: 2, opacity: 0.75 }));
+    if (S.showRail) {
+      draw('rail', () => ({ color: css('--panel'), weight: 6, opacity: 0.9, interactive: false }));   // 縁取り
+      draw('rail', r => ({ color: okColour(r.colour) || css('--ink'), weight: 3.5, opacity: 0.95 }));
+    }
+  }
   function drawPoints() {
     layers.pts.clearLayers();
     if (!S.dataset || !S.pts) return;
@@ -235,7 +251,8 @@
           ? { renderer: canvasR, radius: 4, color: ink, weight: 1.5, fillColor: panel, fillOpacity: 1 }
           : { renderer: canvasR, radius: c.id === 'super' ? 3.6 : 2.6, stroke: false, fillOpacity: 0.9,
               fillColor: c.sign > 0 ? bad : (c.id === 'conv' || c.id === 'fastfood') ? muted : good });
-        m.bindTooltip(esc((p[2] ? p[2] + '（' : '') + c.label + (p[2] ? '）' : '')), { direction: 'top', offset: [0, -4] });
+        const extra = c.routeWeighted && p[4] != null ? `・${p[4] || '系統数不明'}${p[4] ? '系統' : ''}` : '';
+        m.bindTooltip(esc((p[2] ? p[2] + '（' : '') + c.label + extra + (p[2] ? '）' : '')), { direction: 'top', offset: [0, -4] });
         m.addTo(layers.pts);
       }
     }
@@ -350,6 +367,9 @@
   function clearPreset() { $('presets').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', 'false')); }
   $('optRep').addEventListener('change', e => { S.rep = e.target.checked; saveState(); schedule(); });
   $('optPts').addEventListener('change', e => { S.pts = e.target.checked; saveState(); drawPoints(); });
+  $('optRail').addEventListener('change', e => { S.showRail = e.target.checked; saveState(); drawRoutes(); });
+  $('optBus').addEventListener('change', e => { S.showBus = e.target.checked; saveState(); drawRoutes(); });
+  $('optRouteW').addEventListener('change', e => { S.routeWeight = e.target.checked; saveState(); schedule(); });
   $('optIso').addEventListener('change', e => { S.iso = e.target.checked; saveState(); drawIso(); });
   $('optAlpha').addEventListener('input', e => { S.alpha = +e.target.value; if (heat) heat.setOpacity(S.alpha); saveStateSoon(); });
 
@@ -387,6 +407,7 @@
     const list = d.categories.filter(c => c.kind !== 'anchor').map(c => `${esc(c.label)} ${cnt[c.id] ?? 0}${c.kind === 'line' ? '本' : '件'}`).join('、');
     $('notes').innerHTML = [
       `<li>取得日 ${esc(d.generated || '—')}：${list}</li>`,
+      `<li>路線：鉄道 ${(d.routes || []).filter(r => r.kind === 'rail').length} 系統、バス ${(d.routes || []).filter(r => r.kind === 'bus').length} 系統（上り・下りは1つに数えています）。バス路線は OpenStreetMap への登録が地域によって不完全で、路線データが無いバス停は1系統として扱います。</li>`,
       E ? `<li>計算格子は ${E.CELL} m 間隔（${E.NX}×${E.NY} セル）です。</li>` : '',
       '<li>OpenStreetMap の登録状況は地域によって差があります。件数が少ないカテゴリは、実際より弱く表示されます。ドラッグストアとパチンコ店は特に少なめです。</li>',
       '<li>騒音は距離だけで近似しています（交通量・遮音・時間帯は考慮していません）。</li>',
@@ -421,7 +442,7 @@
   } catch (e) { console.error('検索の初期化に失敗しました', e); }   // 検索が壊れても地図と計算は動かす
 
   // ------------------------------------------------------------ テーマ
-  function retheme() { if (regionRect) regionRect.setStyle({ color: css('--ink') }); if (E) { paintHeat(); drawIso(); } drawPoints(); if (pin) pin.setStyle({ color: css('--ink') }); }
+  function retheme() { if (regionRect) regionRect.setStyle({ color: css('--ink') }); if (E) { paintHeat(); drawIso(); } drawRoutes(); drawPoints(); if (pin) pin.setStyle({ color: css('--ink') }); }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
@@ -429,6 +450,7 @@
   const fromLink = loadState();
   ensureWeights();
   if (S.sizeKm) $('rsize').value = String(S.sizeKm);
+  $('optRail').checked = S.showRail; $('optBus').checked = S.showBus; $('optRouteW').checked = S.routeWeight;
   $('optRep').checked = S.rep; $('optPts').checked = S.pts; $('optIso').checked = S.iso; $('optAlpha').value = S.alpha;
   if (window.APP_VERSION) $('ver').textContent += ' · v' + window.APP_VERSION;
   buildPresets(); buildSliders(); drawRegion(); renderAnchors();
