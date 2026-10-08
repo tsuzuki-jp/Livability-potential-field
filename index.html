@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script>
   // 版番号はここだけ。変えると CSS/JS が必ず読み直される（GitHub Pages のキャッシュ対策）
-  window.APP_VERSION = '0.5.0';
+  window.APP_VERSION = '0.5.1';
   document.write('<link rel="stylesheet" href="css/style.css?v=' + APP_VERSION + '">');
 </script>
 </head>
@@ -104,6 +104,7 @@
               <label><input type="checkbox" id="optRail" checked> 鉄道の路線図を表示</label>
               <label><input type="checkbox" id="optBus" checked> バスの路線図を表示</label>
               <label><input type="checkbox" id="optRouteW" checked> バス停を経由する系統数で重み付け</label>
+              <p class="hint" id="routeNote" style="margin:0 0 0 26px">路線図はデータを取得すると表示されます。</p>
               <label><input type="checkbox" id="optPts" checked> 施設の点を表示</label>
               <label><input type="checkbox" id="optIso" checked> 等ポテンシャル線を表示</label>
               <label>濃さ <input type="range" id="optAlpha" min="0.2" max="1" step="0.05" value="0.85" aria-label="ヒートマップの濃さ"></label>

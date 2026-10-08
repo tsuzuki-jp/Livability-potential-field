@@ -228,6 +228,13 @@
   function drawRoutes() {
     layers.routes.clearLayers();
     const routes = (S.dataset && S.dataset.routes) || [];
+    const note = $('routeNote');
+    if (note) {
+      const nr = routes.filter(r => r.kind === 'rail').length, nb = routes.filter(r => r.kind === 'bus').length;
+      note.textContent = !S.dataset ? '路線図はデータを取得すると表示されます。'
+        : !S.dataset.routes ? 'このデータには路線図が入っていません。「データを取得して計算」で取得し直してください。'
+        : `路線：鉄道 ${nr} 系統、バス ${nb} 系統` + (nb === 0 ? '（この地域はバス路線が OpenStreetMap に未登録の可能性があります）' : '');
+    }
     const okColour = c => /^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(c) ? (c[0] === '#' ? c : '#' + c) : (/^[a-z]+$/i.test(c) ? c : '');
     const draw = (kind, opt) => routes.filter(r => r.kind === kind).forEach(r => {
       L.polyline(r.lines, { renderer: routeR, interactive: true, ...opt(r) })

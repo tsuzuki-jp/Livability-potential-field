@@ -24,9 +24,10 @@
     for (const c of categories) for (const f of c.osm || []) (c.kind === 'line' ? lines : pts).push(filterQL(f) + ';');
     let q = `[out:json][timeout:180][bbox:${s},${w},${n},${e}];\n`;
     if (pts.length) q += `(\n  ${pts.join('\n  ')}\n);\nout tags center qt;\n`;
-    if (lines.length) q += `(\n  ${lines.join('\n  ')}\n);\nout tags geom qt;\n`;
+    // 線は body（タグ＋構成点）＋geom で受け取る。tags だと形状が付かない場合がある
+    if (lines.length) q += `(\n  ${lines.join('\n  ')}\n);\nout body geom qt;\n`;
     const modes = routes ? [...(routes.rail || []), ...(routes.bus || [])] : [];
-    if (modes.length) q += `relation["route"~"^(${modes.join('|')})$"];\nout tags geom(${s},${w},${n},${e}) qt;\n`;   // 範囲外の部分は切り取って受け取る
+    if (modes.length) q += `relation["route"~"^(${modes.join('|')})$"];\nout body geom(${s},${w},${n},${e}) qt;\n`;   // body でないと路線の構成メンバー（線・停留所）が付かない。範囲外は切り取る
     return q;
   }
 
